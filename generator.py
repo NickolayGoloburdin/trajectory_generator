@@ -290,18 +290,18 @@ class Segment():
                 self.modify_motor_times_parameter(i, base_index)
 
 
-segment = Segment(3)
-segment.current_position = [0.0, 0.0, 0.0]
-segment.target_position = [1.0, 2.0, 0.5]
-segment.current_velocity = [0.0, 0.0, 0.0]
-segment.target_velocity = [0.0, 0.0, 0.0]
+# segment = Segment(3)
+# segment.current_position = [0.0, 0.0, 0.0]
+# segment.target_position = [1.0, 2.0, 0.5]
+# segment.current_velocity = [0.0, 0.0, 0.0]
+# segment.target_velocity = [0.0, 0.0, 0.0]
 
-segment.max_velocity = [1.2, 1.2, 1.2]
-segment.max_acceleration = [1.8, 1.8, 1.8]
-segment.max_jerk = [1.9, 1.9, 1.9]
+# segment.max_velocity = [1.2, 1.2, 1.2]
+# segment.max_acceleration = [1.8, 1.8, 1.8]
+# segment.max_jerk = [1.9, 1.9, 1.9]
 
-start_time = time()
-segment.calculate()
-print(time()-start_time)
+# start_time = time()
+# # segment.calculate()
+# print(time()-start_time)
 
 # plot([segment])

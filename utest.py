@@ -1,5 +1,5 @@
 import unittest
-from trajectory_generator.generator import Segment
+from generator import Segment
 import random
 # Test cases to test Calulator methods
 # You always create  a child class derived from unittest.TestCase
@@ -20,10 +20,16 @@ class TestGen(unittest.TestCase):
         self.segment.max_acceleration = [1.8, 1.8, 1.8]
         self.segment.max_jerk = [1.9, 1.9, 1.9]
         self.segment.calculate()
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][:3]), sum(self.segment.time_stamp[1][:3]), sum(self.segment.time_stamp[2][:3]))
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][4:]), sum(self.segment.time_stamp[1][4:]), sum(self.segment.time_stamp[2][4:]))
+        for i in range(self.segment.dof):
+            if i == self.segment.dof - 1:
+                break
+            else:
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i]), sum(self.segment.time_stamp[i+1]))
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][:3]), sum(self.segment.time_stamp[i+1][:3]))
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][4:]), sum(self.segment.time_stamp[i+1][4:]))
 
         # self.assertEqual(1, 1)
 
@@ -41,10 +47,16 @@ class TestGen(unittest.TestCase):
         self.segment.max_jerk = [
             2, 2, 2]
         self.segment.calculate()
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][:3]), sum(self.segment.time_stamp[1][:3]), sum(self.segment.time_stamp[2][:3]))
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][4:]), sum(self.segment.time_stamp[1][4:]), sum(self.segment.time_stamp[2][4:]))
+        for i in range(self.segment.dof):
+            if i == self.segment.dof - 1:
+                break
+            else:
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i]), sum(self.segment.time_stamp[i+1]), delta=0.0001)
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][:3]), sum(self.segment.time_stamp[i+1][:3]), delta=0.0001)
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][4:]), sum(self.segment.time_stamp[i+1][4:]), delta=0.0001)
 
         # self.assertEqual(1, 1)
 
@@ -62,10 +74,17 @@ class TestGen(unittest.TestCase):
         self.segment.max_jerk = [
             2, 2, 2]
         self.segment.calculate()
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][:3]), sum(self.segment.time_stamp[1][:3]), sum(self.segment.time_stamp[2][:3]))
-        self.assertEqual(
-            sum(self.segment.time_stamp[0][4:]), sum(self.segment.time_stamp[1][4:]), sum(self.segment.time_stamp[2][4:]))
+
+        for i in range(self.segment.dof):
+            if i == self.segment.dof - 1:
+                break
+            else:
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i]), sum(self.segment.time_stamp[i+1]), delta=0.0001)
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][:3]), sum(self.segment.time_stamp[i+1][:3]), delta=0.0001)
+                self.assertAlmostEqual(
+                    sum(self.segment.time_stamp[i][4:]), sum(self.segment.time_stamp[i+1][4:]), delta=0.0001)
 
         # self.assertEqual(1, 1)
 
