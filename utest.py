@@ -6,7 +6,7 @@ import random
 
 
 class TestGen(unittest.TestCase):
-    # setUp method is overridden from the parent class TestCase
+
     def setUp(self):
         self.segment = Segment(3)
 
