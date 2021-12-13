@@ -9,7 +9,6 @@ class TestGen(unittest.TestCase):
     # setUp method is overridden from the parent class TestCase
     def setUp(self):
         self.segment = Segment(3)
-    # Each test method starts with the keyword test_
 
     def test_1(self):
         self.segment.current_position = [0.0, 0.0, 0.0]
