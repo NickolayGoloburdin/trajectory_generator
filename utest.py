@@ -33,9 +33,9 @@ class TestGen(unittest.TestCase):
         self.segment.target_position = [
             random.random() * 3 - 3, random.random() * 3 - 3, random.random() * 3 - 3]
         self.segment.current_velocity = [
-            random.random() * 3 - 3, random.random() * 3-3, random.random() * 3 - 3]
+            random.random() * 3 - 3, random.random() * 3 - 3, random.random() * 3 - 3]
         self.segment.target_velocity = [
-            random.random() * 3 - 3, random.random() * 3-3, random.random() * 3 - 3]
+            random.random() * 3 - 3, random.random() * 3 - 3, random.random() * 3 - 3]
         self.segment.max_velocity = [2, 2, 2]
         self.segment.max_acceleration = [2, 2, 2]
         self.segment.max_jerk = [
