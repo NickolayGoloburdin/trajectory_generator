@@ -3,7 +3,7 @@ from time import time
 import matplotlib.pyplot as plt
 from numpy import sign
 from scipy import optimize
-
+from scipy.optimize import fsolve, least_squares
 
 def plot(segments):
     time = []
@@ -108,7 +108,6 @@ class Segment():
     def calculate_time_stamp(self) -> None:
         for i in range(self.dof):
             
-            intermediate_waypoint = self.intermediate_waypoints[i]
             times, _ = self.get_time_stamp(self.max_velocity[i], index=i)
             if times[3] < 0:
                 start_point = [self.max_velocity[i]/2]
@@ -293,13 +292,21 @@ class Segment():
                 self.modify_motor_times_parameter(i, base_index)
 
 
-def TwoSegment(segment):    
-    intermediate_waypoint = []
-    intermediate_velocity = [0.0]
-    end_position = segment.target_position
-    end_velocity = [0.0, 0.0, 0.0]
-    segment.target_position = intermediate_waypoint
-    
+def two_segment(segment, intermediate_waypoint):    
+    args_ = [segment, intermediate_waypoint]
+    intermediate_velocities = []
+    lower_bound = []
+    for i in segment.max_velocity:
+        intermediate_velocities.append(i/2)
+        lower_bound.append(-i/2)
+    intermediate_velocities = least_squares(equationmultiple, intermediate_velocities, bounds=(lower_bound, intermediate_velocities ), args= args_).x
+    first_segment = segment
+    second_segment = segment
+    first_segment.target_velocity = second_segment.current_velocity = intermediate_velocities
+    first_segment.target_position = second_segment.current_position = intermediate_waypoint
+    first_segment.calculate()
+    second_segment.calculate()
+    return [first_segment, second_segment]
     
 def sign(a, b):
     if (b - a < 0):
@@ -308,21 +315,23 @@ def sign(a, b):
         return 0
     else:
         return 1
-def equationmultiple(segment, intermediate_waypoint, variable_velocity):
-    
-    for i in segment.dof:
-        if sign(segment.current_position[i], intermediate_waypoint[i]) != sign(segment.current_position[i], intermediate_waypoint[i]):
-            segment.target_velocity[i] = 0.0
+
+def equationmultiple(vars, *args):
+    variable_velocity = vars
+    [segment, intermediate_waypoint] = args
+    first_segment = segment
+    second_segment = segment
+    for i in range(segment.dof):
+        if sign(first_segment.current_position[i], intermediate_waypoint[i]) != sign(first_segment.current_position[i], intermediate_waypoint[i]):
+            first_segment.target_velocity[i] = 0.0
         else:
-            segment.target_velocity[i] = variable_velocity
-    segment.calculate()
-    for i in segment.dof:
-        segment.current_velocity = segment.target_velocity
-        segment.target_velocity = end_velocity
-        segment.current_position = segment.target_postion
-        segment.target_postion = end_position
-    segment.calculate()
-    return segment.calculate_duration()
+            first_segment.target_velocity[i] = variable_velocity[i]
+    first_segment.calculate()
+    for i in range(segment.dof):
+        second_segment.current_velocity = first_segment.target_velocity
+        second_segment.current_position = first_segment.target_position
+    second_segment.calculate()
+    return first_segment.calculate_duration() + second_segment.calculate_duration()
         
         
 
@@ -337,9 +346,12 @@ segment.target_velocity = [0.0, 0.0, 0.0]
 segment.max_velocity = [1.2, 1.2, 1.2]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
-
+intermediate_waypoint = [2.0, 1.0, 2.0]
 start_time = time()
-segment.calculate()
+segment1, segment2 = two_segment(segment, intermediate_waypoint)
+
+
+
 print(time()-start_time)
 
 # plot([segment])
