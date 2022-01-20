@@ -1,6 +1,7 @@
 from math import sqrt
 from time import time
 import matplotlib.pyplot as plt
+from numpy import sign
 from scipy import optimize
 
 
@@ -66,7 +67,7 @@ class Segment():
         self.target_position = [0.0]*dof
         self.current_velocity = [0.0]*dof
         self.target_velocity = [0.0]*dof
-
+        
     def calculate(self):
         self.calculate_time_stamp()
         self.synchronization()
@@ -106,6 +107,8 @@ class Segment():
 
     def calculate_time_stamp(self) -> None:
         for i in range(self.dof):
+            
+            intermediate_waypoint = self.intermediate_waypoints[i]
             times, _ = self.get_time_stamp(self.max_velocity[i], index=i)
             if times[3] < 0:
                 start_point = [self.max_velocity[i]/2]
@@ -290,18 +293,53 @@ class Segment():
                 self.modify_motor_times_parameter(i, base_index)
 
 
-# segment = Segment(3)
-# segment.current_position = [0.0, 0.0, 0.0]
-# segment.target_position = [1.0, 2.0, 0.5]
-# segment.current_velocity = [0.0, 0.0, 0.0]
-# segment.target_velocity = [0.0, 0.0, 0.0]
+def TwoSegment(segment):    
+    intermediate_waypoint = []
+    intermediate_velocity = [0.0]
+    end_position = segment.target_position
+    end_velocity = [0.0, 0.0, 0.0]
+    segment.target_position = intermediate_waypoint
+    
+    
+def sign(a, b):
+    if (b - a < 0):
+        return - 1
+    elif (b - a ==0): 
+        return 0
+    else:
+        return 1
+def equationmultiple(segment, intermediate_waypoint, variable_velocity):
+    
+    for i in segment.dof:
+        if sign(segment.current_position[i], intermediate_waypoint[i]) != sign(segment.current_position[i], intermediate_waypoint[i]):
+            segment.target_velocity[i] = 0.0
+        else:
+            segment.target_velocity[i] = variable_velocity
+    segment.calculate()
+    for i in segment.dof:
+        segment.current_velocity = segment.target_velocity
+        segment.target_velocity = end_velocity
+        segment.current_position = segment.target_postion
+        segment.target_postion = end_position
+    segment.calculate()
+    return segment.calculate_duration()
+        
+        
 
-# segment.max_velocity = [1.2, 1.2, 1.2]
-# segment.max_acceleration = [1.8, 1.8, 1.8]
-# segment.max_jerk = [1.9, 1.9, 1.9]
 
-# start_time = time()
-# # segment.calculate()
-# print(time()-start_time)
+segment = Segment(3)
+
+segment.current_position = [0.0, 0.0, 0.0]
+segment.target_position = [1.0, 2.0, 0.5]
+segment.current_velocity = [0.0, 0.0, 0.0]
+segment.target_velocity = [0.0, 0.0, 0.0]
+
+segment.max_velocity = [1.2, 1.2, 1.2]
+segment.max_acceleration = [1.8, 1.8, 1.8]
+segment.max_jerk = [1.9, 1.9, 1.9]
+
+start_time = time()
+segment.calculate()
+print(time()-start_time)
 
 # plot([segment])
