@@ -293,15 +293,31 @@ class Segment():
 
 
 def two_segment(segment, intermediate_waypoint):
-    args_ = [segment, intermediate_waypoint]
     intermediate_velocities = []
-    lower_bound = []
-    for i in segment.max_velocity:
-        intermediate_velocities.append(i/2)
-        lower_bound.append(-i/2)
+    variable_intermediate_velocities_index = []
+    upper_bounds = []
+    lower_bounds = []
+    
+    for i in range(segment.dof):
+        if (sign(intermediate_waypoint[i] - segment.current_position[i]) == sign(segment.target_position[i]-intermediate_waypoint[i])):
+            variable_intermediate_velocities_index.append(i)
+            if (sign(intermediate_waypoint[i] - segment.current_position[i])>0):
+                upper_bounds.append(segment.max_velocity[i])
+                intermediate_velocities.append(segment.max_velocity[i]/2)
+                lower_bounds.append(0)
+            else:
+                upper_bounds.append(0)
+                intermediate_velocities.append(-segment.max_velocity[i]/2)
+                lower_bounds.append(-segment.max_velocity[i])
+
+    args_ = [segment, variable_intermediate_velocities_index]
     # intermediate_velocities, dtype=np.float32)
-    intermediate_velocities = least_squares(
-        equationmultiple, intermediate_velocities, bounds=(lower_bound, segment.max_velocity), args=args_).x
+    variable_velocities = least_squares(
+        equationmultiple, intermediate_velocities, bounds=(lower_bounds, upper_bounds), args=args_).x
+    intermediate_velocities = [0]*segment.dof
+    for i in range(len(variable_intermediate_velocities_index)):
+        intermediate_velocities[variable_intermediate_velocities_index[i]] = variable_velocities[i]
+    
     print(intermediate_velocities)
 
     first_segment = copy.deepcopy(segment)
@@ -313,30 +329,28 @@ def two_segment(segment, intermediate_waypoint):
     return [first_segment, second_segment]
 
 
-def sign(a, b):
-    if (b - a < 0):
+def sign(a):
+    if (a < 0):
         return - 1
-    elif (b - a == 0):
-        return 0
     else:
         return 1
 
 
 def equationmultiple(vars, *args):
     variable_velocity = vars
-    [segment, intermediate_waypoint] = args
+    [segment, variable_intermediate_velocities_index] = args
 
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
-    for i in range(segment.dof):
-        if sign(first_segment.current_position[i], intermediate_waypoint[i]) != sign(first_segment.current_position[i], intermediate_waypoint[i]):
-            first_segment.target_velocity[i] = 0.0
-        else:
-            first_segment.target_velocity[i] = variable_velocity[i]
-    first_segment.calculate()
+    
+    all_velosities = [0]*segment.dof
+    for i in range(len(variable_intermediate_velocities_index)):
+        all_velosities[variable_intermediate_velocities_index[i]] = variable_velocity[i]  
+
+    first_segment.target_velocity = all_velosities
     second_segment.current_velocity = first_segment.target_velocity
+    first_segment.calculate()
     second_segment.calculate()
-    a = first_segment.duration + second_segment.duration
     return first_segment.duration + second_segment.duration
 
 
@@ -353,7 +367,6 @@ segment.max_jerk = [1.9, 1.9, 1.9]
 intermediate_waypoint = [2.0, 8.0, 2.0]
 start_time = time()
 segment1, segment2 = two_segment(segment, intermediate_waypoint)
-
 
 print(time()-start_time)
 
