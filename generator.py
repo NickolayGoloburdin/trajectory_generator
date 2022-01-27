@@ -50,19 +50,6 @@ def plot(segments):
 
 
 class Segment():
-    current_position = []
-    target_position = []
-    current_velocity = []
-    target_velocity = []
-
-    max_velocity = []
-    max_acceleration = []
-    max_jerk = []
-
-    time_stamp = []
-    state_vectors = []
-
-    duration = 0
 
     def __init__(self, dof) -> None:
         self.dof = dof
@@ -70,6 +57,16 @@ class Segment():
         self.target_position = [0.0]*dof
         self.current_velocity = [0.0]*dof
         self.target_velocity = [0.0]*dof
+        self.current_position = []
+        self.target_position = []
+        self.current_velocity = []
+        self.target_velocity = []
+        self.max_velocity = []
+        self.max_acceleration = []
+        self.max_jerk = []
+        self.time_stamp = []
+        self.state_vectors = []
+        self.duration = 0
 
     def calculate(self):
         self.calculate_time_stamp()
@@ -100,7 +97,7 @@ class Segment():
         jerks = []
 
         for i in range(self.dof):
-            coords = self.__get_joint_states(i, time)
+            coords = self.get_joint_states(i, time)
             positions.append(coords[0])
             velocities.append(coords[1])
             accelerations.append(coords[2])
@@ -301,12 +298,12 @@ def two_segment(segment, intermediate_waypoint):
     lower_bound = []
     for i in segment.max_velocity:
         intermediate_velocities.append(i/2)
-    intermediate_velocities_array = np.array(intermediate_velocities)
-
+        lower_bound.append(-i/2)
     # intermediate_velocities, dtype=np.float32)
-
     intermediate_velocities = least_squares(
-        equationmultiple, intermediate_velocities, bounds=((-5.0, -5.0, -5.0), (5.0, 5.0, 5.0)), args=args_).x
+        equationmultiple, intermediate_velocities, bounds=(lower_bound, segment.max_velocity), args=args_).x
+    print(intermediate_velocities)
+
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
     first_segment.target_velocity = second_segment.current_velocity = intermediate_velocities
@@ -328,10 +325,9 @@ def sign(a, b):
 def equationmultiple(vars, *args):
     variable_velocity = vars
     [segment, intermediate_waypoint] = args
+
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
-    first_segment.target_position = intermediate_waypoint
-    second_segment.current_position = intermediate_waypoint
     for i in range(segment.dof):
         if sign(first_segment.current_position[i], intermediate_waypoint[i]) != sign(first_segment.current_position[i], intermediate_waypoint[i]):
             first_segment.target_velocity[i] = 0.0
@@ -340,24 +336,25 @@ def equationmultiple(vars, *args):
     first_segment.calculate()
     second_segment.current_velocity = first_segment.target_velocity
     second_segment.calculate()
-    return first_segment.calculate_duration() + second_segment.calculate_duration()
+    a = first_segment.duration + second_segment.duration
+    return first_segment.duration + second_segment.duration
 
 
 segment = Segment(3)
 
 segment.current_position = [0.0, 0.0, 0.0]
-segment.target_position = [1.0, 2.0, 0.5]
+segment.target_position = [1.0, 10.0, 0.5]
 segment.current_velocity = [0.0, 0.0, 0.0]
 segment.target_velocity = [0.0, 0.0, 0.0]
 
 segment.max_velocity = [1.2, 1.2, 1.2]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
-intermediate_waypoint = [2.0, 1.0, 2.0]
+intermediate_waypoint = [2.0, 8.0, 2.0]
 start_time = time()
 segment1, segment2 = two_segment(segment, intermediate_waypoint)
 
 
 print(time()-start_time)
 
-# plot([segment])
+plot([segment1, segment2])
