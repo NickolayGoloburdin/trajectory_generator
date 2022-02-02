@@ -1,5 +1,6 @@
 from math import sqrt
 from time import time
+from matplotlib.cbook import index_of
 import matplotlib.pyplot as plt
 from numpy import float32, ndarray, sign
 import numpy as np
@@ -248,11 +249,17 @@ class Segment():
 
         return index
 
-    def modify_motor_times_parameter(self, index, base_index):
-
-        t_1_3 = sum(self.time_stamp[base_index][:3])
-        t_5_7 = sum(self.time_stamp[base_index][4:])
-        t4 = self.time_stamp[base_index][3]
+    def modify_motor_times_parameter(self, index, base_index=None, t_1_3_=None, t_5_7_=None, t4_=None):
+        
+        if not base_index is None:
+            t_1_3 = sum(self.time_stamp[base_index][:3])
+            t_5_7 = sum(self.time_stamp[base_index][4:])
+            t4 = self.time_stamp[base_index][3]
+        else:
+            t_1_3 = t_1_3_
+            t_5_7 = t_5_7_
+            t4 = t4_
+            
         dq = self.target_position[index] - self.current_position[index]
 
         v = (dq - 1/2*(t_1_3*self.current_velocity[index] + t_5_7 *
@@ -283,13 +290,38 @@ class Segment():
         new_time_stamp = [t1, t2, t1, t4, t5, t6, t5]
         self.time_stamp[index] = new_time_stamp
 
+    def get_max_t4(self):
+        max_t4 = self.time_stamp[0][3]
+        for el in self.time_stamp:
+            if max_t4 < el[3]:
+                max_t4 = el[3]
+        return max_t4
+
+    def get_max_t13_t57(self):
+        max_t13 = sum(self.time_stamp[0][:3])
+        max_t57 = sum(self.time_stamp[0][4:])
+        for i, el in enumerate(self.time_stamp):
+            cur_t13 = sum(el[:3])
+            cur_t57 = sum(el[4:])
+            if cur_t13 > max_t13:
+                max_t13 = cur_t13
+            
+            if cur_t57 > max_t57:
+                max_t57 = cur_t57
+        
+        return [max_t13, max_t57]
+
     def synchronization(self):
-        base_index = self.get_index_base_motor()
+        # base_index = self.get_index_base_motor()
+        # for i in range(self.dof):
+        #     if i == base_index:
+        #         continue
+        #     else:
+        #         self.modify_motor_times_parameter(i, base_index=base_index)
+        max_t13_t57 = self.get_max_t13_t57()
+        max_t4 = self.get_max_t4()
         for i in range(self.dof):
-            if i == base_index:
-                continue
-            else:
-                self.modify_motor_times_parameter(i, base_index)
+            self.modify_motor_times_parameter(i, t_1_3_=max_t13_t57[0], t_5_7_=max_t13_t57[1], t4_=max_t4)
 
 
 def two_segment(segment, intermediate_waypoint):
@@ -311,9 +343,11 @@ def two_segment(segment, intermediate_waypoint):
                 lower_bounds.append(-segment.max_velocity[i])
 
     args_ = [segment, variable_intermediate_velocities_index]
-    # intermediate_velocities, dtype=np.float32)
-    variable_velocities = least_squares(
-        equationmultiple, intermediate_velocities, bounds=(lower_bounds, upper_bounds), args=args_).x
+    if len(variable_intermediate_velocities_index) !=0:
+        variable_velocities = least_squares(
+            equationmultiple, intermediate_velocities, bounds=(lower_bounds, upper_bounds), args=args_).x
+    else:
+        variable_velocities = []
     intermediate_velocities = [0]*segment.dof
     for i in range(len(variable_intermediate_velocities_index)):
         intermediate_velocities[variable_intermediate_velocities_index[i]] = variable_velocities[i]
@@ -364,10 +398,11 @@ segment.target_velocity = [0.0, 0.0, 0.0]
 segment.max_velocity = [1.2, 1.2, 1.2]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
+
 intermediate_waypoint = [2.0, 8.0, 2.0]
-start_time = time()
+# start_time = time()
 segment1, segment2 = two_segment(segment, intermediate_waypoint)
 
-print(time()-start_time)
+# print(time()-start_time)
 
 plot([segment1, segment2])
