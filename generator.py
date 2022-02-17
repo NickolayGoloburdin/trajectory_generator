@@ -433,11 +433,11 @@ segment.target_velocity = [0.0, 0.0, 0.0]
 segment.max_velocity = [1.2, 1.2, 1.2]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
-intermediate_waypoint = [2.0, 5.0, 7.0]
+intermediate_waypoint = [2.0, 4.0, 8.0]
 # intermediate_waypoints = [[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [8.0, 5.0, 4.0]]
 start_time = time()
 segment1, segment2 = two_segment(segment, intermediate_waypoint)
 #segments = multi_segment(segment, intermediate_waypoints)
 print(time()-start_time)
-
+# plot(segments)
 plot([segment1, segment2])
