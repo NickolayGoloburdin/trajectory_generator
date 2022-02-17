@@ -85,20 +85,10 @@ class Segment():
             i = 0.0
 
     def erase_segment(self):
-        self.__init__()
-        current_position = []
-        target_position = []
-        current_velocity = []
-        target_velocity = []
+        self.time_stamp.clear()
+        self.state_vectors.clear()
 
-        max_velocity = []
-        max_acceleration = []
-        max_jerk = []
-
-        time_stamp = []
-        state_vectors = []
-
-        duration = 0
+        self.duration = 0
 
     def at_time(self, time):
         positions = []
@@ -377,7 +367,7 @@ def two_segment(segment, intermediate_waypoint):
         intermediate_velocities[variable_intermediate_velocities_index[i]
                                 ] = variable_velocities[i]
 
-    print(intermediate_velocities)
+    # print(intermediate_velocities)
 
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
@@ -414,22 +404,40 @@ def equationmultiple(vars, *args):
     return first_segment.duration + second_segment.duration
 
 
+def multi_segment(segment, intermediate_waypoints):
+    segment_unit = copy.deepcopy(segment)
+    segments = []
+    for i, wp in enumerate(intermediate_waypoints):
+        if i == (len(intermediate_waypoints) - 1):
+            segment_unit.target_position = segment.target_position
+            segment_prev, segment_unit = two_segment(segment_unit, wp)
+            segments.append(segment_prev)
+            segments.append(segment_unit)
+
+        else:
+            segment_unit.target_position = intermediate_waypoints[i+1]
+            segment_prev, segment_unit = two_segment(segment_unit, wp)
+
+            segments.append(segment_prev)
+            segment_unit.erase_segment()
+    return segments
+
+
 segment = Segment(3)
 
 segment.current_position = [0.0, 0.0, 0.0]
-segment.target_position = [1.0, 10.0, 0.5]
+segment.target_position = [10.0, 10.0, 10.0]
 segment.current_velocity = [0.0, 0.0, 0.0]
 segment.target_velocity = [0.0, 0.0, 0.0]
 
 segment.max_velocity = [1.2, 1.2, 1.2]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
-
-intermediate_waypoint = [2.0, 10.0, 2.0]
-# start_time = time()
+intermediate_waypoint = [2.0, 5.0, 7.0]
+# intermediate_waypoints = [[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [8.0, 5.0, 4.0]]
+start_time = time()
 segment1, segment2 = two_segment(segment, intermediate_waypoint)
-
-
-# print(time()-start_time)
+#segments = multi_segment(segment, intermediate_waypoints)
+print(time()-start_time)
 
 plot([segment1, segment2])
