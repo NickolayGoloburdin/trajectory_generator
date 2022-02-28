@@ -1,5 +1,5 @@
 from math import sqrt
-from time import time
+from time import time, sleep
 import matplotlib.pyplot as plt
 from scipy import optimize
 from scipy.optimize import fsolve, least_squares, minimize
@@ -40,6 +40,12 @@ def plot(segments):
             axs[i].plot(time, velocity[i])
             axs[i].plot(time, acceleration[i])
             axs[i].grid()
+            
+            time_segment = 0
+            for j in range(len(segments)):
+                time_segment += segments[j].duration
+                axs[i].axvline(x=time_segment, linestyle='--')
+                
     plt.show()
 
 
@@ -60,7 +66,6 @@ class Segment():
         self.max_acceleration = []
         self.max_jerk = []
         self.time_stamp = []
-        self.motors_with_zero_dq = []
         self.state_vectors = []
         self.duration = 0
 
@@ -127,7 +132,6 @@ class Segment():
         dq = self.target_position[index] - self.current_position[index]
 
         if dq == 0:
-            self.motors_with_zero_dq.append(index)
             return [0, 0, 0, 0, 0, 0, 0], 0
 
         direction = dq/abs(dq)
@@ -203,16 +207,14 @@ class Segment():
 
             q1 = self.current_position[i]
             q2 = self.target_position[i]
-            if i in self.motors_with_zero_dq:
-                state_zero_vector = []
-                for k in range(7):
-                    state_zero_vector.append([0, 0, 0, q1])
-                self.state_vectors.append(state_zero_vector)
-                continue
 
             vin = self.current_velocity[i]
 
-            sign = abs(q2 - q1)/(q2 - q1)
+            dq = q2 - q1
+            if dq ==0:
+                sign = 0
+            else:
+                sign = abs(dq)/(dq)
             
             dv_in = self.real_max_velocity[i]-self.current_velocity[i]
             dv_out = self.real_max_velocity[i]-self.target_velocity[i]
@@ -266,11 +268,11 @@ class Segment():
         return index
 
     def modify_motor_times_parameter(self, index, base_index=None, t_1_3_=None, t_5_7_=None, t4_=None):
-
-        if index in self.motors_with_zero_dq:
-            base_index_ = self.get_index_base_motor()
-            self.time_stamp[index] = self.time_stamp[base_index_]
-            return
+        
+        dq = self.target_position[index] - self.current_position[index]
+        if dq == 0:
+            self.time_stamp[index] = [t_1_3_/2, 0, t_1_3_/2, t4_, t_5_7_/2, 0, t_5_7_/2]
+            return 0
 
         if not base_index is None:
             t_1_3 = sum(self.time_stamp[base_index][:3])
@@ -281,7 +283,6 @@ class Segment():
             t_5_7 = t_5_7_
             t4 = t4_
 
-        dq = self.target_position[index] - self.current_position[index]
 
         v = (dq - 1/2*(t_1_3*self.current_velocity[index] + t_5_7 *
                        self.target_velocity[index]))/(1/2*t_1_3+1/2*t_5_7+t4)
@@ -289,7 +290,7 @@ class Segment():
         v = round(v, 4)
         
         if v*dq < 0:
-            return abs(v)*10+dq/v*100
+            return abs(v)*10+dq/abs(v)*100
 
         dv_cur = abs(v - self.current_velocity[index])
         dv_tar = abs(v - self.target_velocity[index])
@@ -316,12 +317,13 @@ class Segment():
 
         new_time_stamp = [t1, t2, t1, t4, t5, t6, t5]
         self.time_stamp[index] = new_time_stamp
+        self.real_max_velocity[index] = abs(v)
         return 0
 
     def get_max_t4(self, t13, t57):
         max_t4 = 0        
         for i in range(self.dof):
-            dq = self.target_position[i] - self.current_position[i]
+            dq = abs(self.target_position[i] - self.current_position[i])
             t4_temp = (dq-(t13+t57)*self.real_max_velocity[i]/2-t13*self.current_velocity[i]/2-t57*self.target_velocity[i]/2)/\
                        self.real_max_velocity[i]
             if t4_temp > max_t4:
@@ -360,7 +362,10 @@ def two_segment(segment, intermediate_waypoint):
     bounds = []
 
     for i in range(segment.dof):
-        if (sign(intermediate_waypoint[i] - segment.current_position[i]) == sign(segment.target_position[i]-intermediate_waypoint[i])):
+        dq_in = intermediate_waypoint[i] - segment.current_position[i]
+        dq_out = segment.target_position[i]-intermediate_waypoint[i]
+        if (sign(dq_in) == sign(dq_out) and\
+            dq_in !=0 and dq_out !=0):
             variable_intermediate_velocities_index.append(i)
             if (sign(intermediate_waypoint[i] - segment.current_position[i]) > 0):
                 upper_bounds.append(segment.real_max_velocity[i])
@@ -453,15 +458,15 @@ def multi_segment(segment, intermediate_waypoints):
 segment = Segment(3)
 
 segment.current_position = [0.0, 0.0, 0.0]
-segment.target_position = [3.0, 3.0, 3.0]
+segment.target_position = [0.0, 0.0, 0.0]
 segment.current_velocity = [0.0, 0.0, 0.0]
 segment.target_velocity = [0.0, 0.0, 0.0]
 
-segment.max_velocity = [1.5, 2.2, 0.8]
-segment.max_acceleration = [1.8, 1.8, 1.8]
-segment.max_jerk = [1.9, 1.9, 1.9]
+segment.max_velocity = [2.5, 10, 0.8]
+segment.max_acceleration = [1.8, 1.8, 2.8]
+segment.max_jerk = [1.9, 0.9, 1.9]
 intermediate_waypoint = [1.0, 5.0, 2.0]
-intermediate_waypoints = [[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [5.0, 5.0, 3.5]]
+intermediate_waypoints = [[-1.0, 2.0, 2.0], [3.1, 2.5, 2.0], [6.0, 3.0, 3.5], [8.0, 4.0, 5.5]]
 start_time = time()
 # segment.calculate()
 # segment1, segment2 = two_segment(segment, intermediate_waypoint)
