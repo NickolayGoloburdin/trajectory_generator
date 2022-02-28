@@ -1,13 +1,9 @@
 from math import sqrt
 from time import time
-from matplotlib.cbook import index_of
 import matplotlib.pyplot as plt
-from numpy import float32, ndarray, sign
-import numpy as np
 from scipy import optimize
-from scipy.optimize import fsolve, least_squares
+from scipy.optimize import fsolve, least_squares, minimize
 import copy
-
 
 def plot(segments):
     time = []
@@ -19,7 +15,7 @@ def plot(segments):
         velocity.append([])
         acceleration.append([])
 
-    time_step = 0.01
+    time_step = 0.001
     time_offset = 0
     for i, segment in enumerate(segments):
         time.append(time_offset)
@@ -32,21 +28,18 @@ def plot(segments):
             time.append(time[-1]+time_step)
         time.pop()
         time_offset = time[-1]
-    fig, axs = plt.subplots(3, 1, figsize=(12, 7))
-    axs[0].plot(time, positions[0])
-    axs[0].plot(time, velocity[0])
-    axs[0].plot(time, acceleration[0])
-    axs[0].grid()
-
-    axs[1].plot(time, positions[1])
-    axs[1].plot(time, velocity[1])
-    axs[1].plot(time, acceleration[1])
-    axs[1].grid()
-
-    axs[2].plot(time, positions[2])
-    axs[2].plot(time, velocity[2])
-    axs[2].plot(time, acceleration[2])
-    axs[2].grid()
+    fig, axs = plt.subplots(segments[0].dof, 1, figsize=(12, 7))
+    if segments[0].dof == 1:
+        axs.plot(time, positions[0])
+        axs.plot(time, velocity[0])
+        axs.plot(time, acceleration[0])
+        axs.grid()
+    else:
+        for i in range(segments[0].dof):
+            axs[i].plot(time, positions[i])
+            axs[i].plot(time, velocity[i])
+            axs[i].plot(time, acceleration[i])
+            axs[i].grid()
     plt.show()
 
 
@@ -63,6 +56,7 @@ class Segment():
         self.current_velocity = []
         self.target_velocity = []
         self.max_velocity = []
+        self.real_max_velocity = [0.0]*dof
         self.max_acceleration = []
         self.max_jerk = []
         self.time_stamp = []
@@ -112,7 +106,10 @@ class Segment():
                 start_point = [self.max_velocity[i]/2]
                 res1 = optimize.fsolve(
                     self.equation_minimize, start_point, args=(i,), full_output=True)
+                self.real_max_velocity[i] = res1[0][0]
                 times, _ = self.get_time_stamp(res1[0][0], index=i)
+            else:
+                self.real_max_velocity[i] = self.max_velocity[i]
             self.time_stamp.append(times)
 
     def equation_minimize(self, v_, *args):
@@ -202,7 +199,6 @@ class Segment():
     def state_vectors_generate(self):
         for i in range(self.dof):
             t = self.time_stamp[i]
-            vmax = self.max_velocity[i]
             jmax = self.max_jerk[i]
 
             q1 = self.current_position[i]
@@ -217,6 +213,18 @@ class Segment():
             vin = self.current_velocity[i]
 
             sign = abs(q2 - q1)/(q2 - q1)
+            
+            dv_in = self.real_max_velocity[i]-self.current_velocity[i]
+            dv_out = self.real_max_velocity[i]-self.target_velocity[i]
+            if dv_in != 0:
+                vel_in_sign = abs(dv_in)/(dv_in)
+            else:
+                vel_in_sign = 1
+            
+            if dv_out !=0:
+                vel_out_sign = abs(dv_out)/(dv_out)
+            else:
+                vel_out_sign = 1
 
             state_vector = []
 
@@ -224,13 +232,13 @@ class Segment():
                 if k in [1, 3, 5]:
                     j = 0
                 elif k == 0:
-                    j = sign*jmax
+                    j = vel_in_sign*sign*jmax
                 elif k == 2:
-                    j = -sign*jmax
+                    j = -vel_in_sign*sign*jmax
                 elif k == 4:
-                    j = -sign*jmax
+                    j = -vel_out_sign*sign*jmax
                 else:
-                    j = sign*jmax
+                    j = vel_out_sign*sign*jmax
 
                 if k == 0:
                     a = 0
@@ -277,12 +285,18 @@ class Segment():
 
         v = (dq - 1/2*(t_1_3*self.current_velocity[index] + t_5_7 *
                        self.target_velocity[index]))/(1/2*t_1_3+1/2*t_5_7+t4)
+        
+        v = round(v, 4)
+        
+        if v*dq < 0:
+            return abs(v)*10+dq/v*100
 
-        dv_cur = v - self.current_velocity[index]
-        dv_tar = v - self.target_velocity[index]
-
-        t_2_2 = (t_1_3**2*self.max_jerk[index] -
-                 4*abs(dv_cur))/self.max_jerk[index]
+        dv_cur = abs(v - self.current_velocity[index])
+        dv_tar = abs(v - self.target_velocity[index])
+        jerk = self.max_jerk[index] 
+        
+        t_2_2 = (t_1_3**2*jerk -
+                 4*dv_cur)/jerk
         if t_2_2 > 0:
             t2 = sqrt(t_2_2)
 
@@ -291,8 +305,8 @@ class Segment():
 
         t1 = 1/2*t_1_3 - 1/2*t2
 
-        t_6_2 = (t_5_7**2*self.max_jerk[index] -
-                 4*abs(dv_tar))/self.max_jerk[index]
+        t_6_2 = (t_5_7**2*jerk -
+                 4*dv_tar)/jerk
         if t_6_2 > 0:
             t6 = sqrt(t_6_2)
         else:
@@ -302,12 +316,16 @@ class Segment():
 
         new_time_stamp = [t1, t2, t1, t4, t5, t6, t5]
         self.time_stamp[index] = new_time_stamp
+        return 0
 
-    def get_max_t4(self):
-        max_t4 = self.time_stamp[0][3]
-        for el in self.time_stamp:
-            if max_t4 < el[3]:
-                max_t4 = el[3]
+    def get_max_t4(self, t13, t57):
+        max_t4 = 0        
+        for i in range(self.dof):
+            dq = self.target_position[i] - self.current_position[i]
+            t4_temp = (dq-(t13+t57)*self.real_max_velocity[i]/2-t13*self.current_velocity[i]/2-t57*self.target_velocity[i]/2)/\
+                       self.real_max_velocity[i]
+            if t4_temp > max_t4:
+                max_t4 = t4_temp
         return max_t4
 
     def get_max_t13_t57(self):
@@ -325,17 +343,13 @@ class Segment():
         return [max_t13, max_t57]
 
     def synchronization(self):
-        # base_index = self.get_index_base_motor()
-        # for i in range(self.dof):
-        #     if i == base_index:
-        #         continue
-        #     else:
-        #         self.modify_motor_times_parameter(i, base_index=base_index)
         max_t13_t57 = self.get_max_t13_t57()
-        max_t4 = self.get_max_t4()
+        max_t4 = self.get_max_t4(max_t13_t57[0], max_t13_t57[1])
         for i in range(self.dof):
-            self.modify_motor_times_parameter(
+            result = self.modify_motor_times_parameter(
                 i, t_1_3_=max_t13_t57[0], t_5_7_=max_t13_t57[1], t4_=max_t4)
+            if result != 0:
+                raise ValueError(result)
 
 
 def two_segment(segment, intermediate_waypoint):
@@ -343,31 +357,33 @@ def two_segment(segment, intermediate_waypoint):
     variable_intermediate_velocities_index = []
     upper_bounds = []
     lower_bounds = []
+    bounds = []
 
     for i in range(segment.dof):
         if (sign(intermediate_waypoint[i] - segment.current_position[i]) == sign(segment.target_position[i]-intermediate_waypoint[i])):
             variable_intermediate_velocities_index.append(i)
             if (sign(intermediate_waypoint[i] - segment.current_position[i]) > 0):
-                upper_bounds.append(segment.max_velocity[i])
-                intermediate_velocities.append(segment.max_velocity[i]/2)
+                upper_bounds.append(segment.real_max_velocity[i])
+                intermediate_velocities.append(segment.real_max_velocity[i]/2)
                 lower_bounds.append(0)
+                bounds.append((0, segment.real_max_velocity[i]))
             else:
                 upper_bounds.append(0)
-                intermediate_velocities.append(-segment.max_velocity[i]/2)
-                lower_bounds.append(-segment.max_velocity[i])
+                intermediate_velocities.append-(segment.real_max_velocity[i]/2)
+                lower_bounds.append(-segment.real_max_velocity[i])
+                bounds.append((-segment.real_max_velocity[i], 0))
 
-    args_ = [segment, variable_intermediate_velocities_index]
+    args_ = [segment, variable_intermediate_velocities_index, intermediate_waypoint]
     if len(variable_intermediate_velocities_index) != 0:
-        variable_velocities = least_squares(
-            equationmultiple, intermediate_velocities, bounds=(lower_bounds, upper_bounds), args=args_).x
+        result = minimize(
+            equationmultiple, intermediate_velocities, bounds=bounds, args=args_)
+        variable_velocities = result.x
     else:
         variable_velocities = []
     intermediate_velocities = [0]*segment.dof
     for i in range(len(variable_intermediate_velocities_index)):
         intermediate_velocities[variable_intermediate_velocities_index[i]
                                 ] = variable_velocities[i]
-
-    # print(intermediate_velocities)
 
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
@@ -387,7 +403,7 @@ def sign(a):
 
 def equationmultiple(vars, *args):
     variable_velocity = vars
-    [segment, variable_intermediate_velocities_index] = args
+    [segment, variable_intermediate_velocities_index, intermediate_waypoint] = args[0]
 
     first_segment = copy.deepcopy(segment)
     second_segment = copy.deepcopy(segment)
@@ -399,9 +415,20 @@ def equationmultiple(vars, *args):
 
     first_segment.target_velocity = all_velosities
     second_segment.current_velocity = first_segment.target_velocity
-    first_segment.calculate()
-    second_segment.calculate()
-    return first_segment.duration + second_segment.duration
+    first_segment.target_position = intermediate_waypoint
+    second_segment.current_position = intermediate_waypoint
+    try:
+        first_segment.calculate()
+        first_duration = first_segment.duration
+    except ValueError as e:
+        first_duration = e.args[0]
+    try:
+        second_segment.calculate()
+        second_duration = second_segment.duration
+    except ValueError as e:
+        second_duration = e.args[0]
+    result = first_duration + second_duration
+    return result
 
 
 def multi_segment(segment, intermediate_waypoints):
@@ -426,18 +453,20 @@ def multi_segment(segment, intermediate_waypoints):
 segment = Segment(3)
 
 segment.current_position = [0.0, 0.0, 0.0]
-segment.target_position = [10.0, 10.0, 10.0]
+segment.target_position = [3.0, 3.0, 3.0]
 segment.current_velocity = [0.0, 0.0, 0.0]
 segment.target_velocity = [0.0, 0.0, 0.0]
 
-segment.max_velocity = [1.2, 1.2, 1.2]
+segment.max_velocity = [1.5, 2.2, 0.8]
 segment.max_acceleration = [1.8, 1.8, 1.8]
 segment.max_jerk = [1.9, 1.9, 1.9]
-intermediate_waypoint = [2.0, 4.0, 8.0]
-# intermediate_waypoints = [[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [8.0, 5.0, 4.0]]
+intermediate_waypoint = [1.0, 5.0, 2.0]
+intermediate_waypoints = [[2.0, 2.0, 2.0], [3.0, 3.0, 3.0], [5.0, 5.0, 3.5]]
 start_time = time()
-segment1, segment2 = two_segment(segment, intermediate_waypoint)
-#segments = multi_segment(segment, intermediate_waypoints)
+# segment.calculate()
+# segment1, segment2 = two_segment(segment, intermediate_waypoint)
+segments = multi_segment(segment, intermediate_waypoints)
 print(time()-start_time)
-# plot(segments)
-plot([segment1, segment2])
+# plot([segment])
+plot(segments)
+# plot([segment1, segment2])
