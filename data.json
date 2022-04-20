@@ -1,0 +1,10 @@
+{
+    "main_prop_warp":[0 , 10000],
+    "warp_flexural_strength":[0, 10000],
+    "wapr_modulus" : [0, 10000],
+    "warp_shear_modulus" : [0, 1000],
+    "heat_distortion_temperature" : [0, 1000],
+    "thermal_expansion_coefficient" : [0 , 1000],
+    "density" : [0 , 1000],
+    "durabilities" : [1,0,1,0,1,0,1,1]
+}

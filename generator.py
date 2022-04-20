@@ -15,7 +15,7 @@ def plot(segments):
         velocity.append([])
         acceleration.append([])
 
-    time_step = 0.001
+    time_step = 0.0005
     time_offset = 0
     for i, segment in enumerate(segments):
         time.append(time_offset)
@@ -290,7 +290,7 @@ class Segment():
         v = round(v, 4)
         
         if v*dq < 0:
-            return abs(v)*10+dq/abs(v)*100
+            return abs(v)*10+abs(dq/v)*100
 
         dv_cur = abs(v - self.current_velocity[index])
         dv_tar = abs(v - self.target_velocity[index])
@@ -298,20 +298,23 @@ class Segment():
         
         t_2_2 = (t_1_3**2*jerk -
                  4*dv_cur)/jerk
-        if t_2_2 > 0:
+        if t_2_2 >= 0:
             t2 = sqrt(t_2_2)
-
+        elif(abs(t_2_2)< 0.001):
+            t2=0
         else:
-            t2 = 0
+            return abs(t_2_2)*10+abs(dq/v)*100
 
         t1 = 1/2*t_1_3 - 1/2*t2
 
         t_6_2 = (t_5_7**2*jerk -
                  4*dv_tar)/jerk
-        if t_6_2 > 0:
+        if t_6_2 >= 0:
             t6 = sqrt(t_6_2)
-        else:
+        elif(abs(t_6_2)< 0.001):
             t6 = 0
+        else:
+            return abs(t_6_2)*10+abs(dq/v)*100
 
         t5 = 1/2*t_5_7 - 1/2*t6
 
@@ -369,12 +372,12 @@ def two_segment(segment, intermediate_waypoint):
             variable_intermediate_velocities_index.append(i)
             if (sign(intermediate_waypoint[i] - segment.current_position[i]) > 0):
                 upper_bounds.append(segment.real_max_velocity[i])
-                intermediate_velocities.append(segment.real_max_velocity[i]/2)
+                intermediate_velocities.append(segment.real_max_velocity[i])
                 lower_bounds.append(0)
                 bounds.append((0, segment.real_max_velocity[i]))
             else:
                 upper_bounds.append(0)
-                intermediate_velocities.append-(segment.real_max_velocity[i]/2)
+                intermediate_velocities.append(-segment.real_max_velocity[i])
                 lower_bounds.append(-segment.real_max_velocity[i])
                 bounds.append((-segment.real_max_velocity[i], 0))
 
@@ -465,8 +468,8 @@ segment.target_velocity = [0.0, 0.0, 0.0]
 segment.max_velocity = [2.5, 10, 0.8]
 segment.max_acceleration = [1.8, 1.8, 2.8]
 segment.max_jerk = [1.9, 0.9, 1.9]
-intermediate_waypoint = [1.0, 5.0, 2.0]
-intermediate_waypoints = [[-1.0, 2.0, 2.0], [3.1, 2.5, 2.0], [6.0, 3.0, 3.5], [8.0, 4.0, 5.5]]
+# intermediate_waypoint = [1.0, 5.0, 2.0]
+intermediate_waypoints = [[-5.0, 5.0, 0.0], [1.0, 0.5, -2.0], [3.0, -1.0, -2.01], [-8.0, 3.0, 1.5]]
 start_time = time()
 # segment.calculate()
 # segment1, segment2 = two_segment(segment, intermediate_waypoint)
